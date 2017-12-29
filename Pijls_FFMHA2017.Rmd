@@ -1,0 +1,284 @@
+---
+title: "Fundamentals of Financial Mathematics Home Assignment"
+author: Pieter Pijls^[r0387948 (Faculty of Economics and Business, KU Leuven, Leuven,
+  Belgium)]
+date: "Academic year 2017-2018"
+output:
+  pdf_document:
+    includes:
+      in_header: preamble-latex.tex
+    latex_engine: xelatex
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.pos = 'H')
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+rm(list=ls())
+library(ggplot2)
+```
+
+# Introduction
+
+This paper describes the design of two structured products, both Partially Principal Protect Notes (PPPNs). The notes are structured products on a single stock, namely Alibaba Group Holding Limited (BABA) with one payment day (no early redemption is possible). The maturity date for both products is Friday 18th January 2019. The starting date which is considered as $t=0$ is Tuesday 21 November 2017. The payoff of both PPPNs is determined as follows. For each investment $N$ at time $t=0$, the investor receives at maturity 90% of $N$ and a premium. In the first section we describe the PPPN I. The second section discusses the PPPN II. 
+
+# PPPN I
+
+## Financial Product Description 
+
+The first Partially Principal Protect Note (PPPN) is a financial product designed for investors who don't like to take many risk. On the other hand, the investor would like to benefit from an increasing equity market in the medium term. This can be a really interesting investment as the last eight years the stock markets more than doubled and investors would like to profit from this increase. In addition, this PPPN protects investors against adverse movements in stocks. These features make this financial product really attractive for risk-adverse investors looking for a higher return.  
+
+We propose a PPPN which invests in a stock with partially capital protection. In this PPPN the investors will share in the gains of one of the most popular stocks at the moment: Alibaba (BABA). The stock of this Chinese internet giant is up more than 110 % last year and is expected to increase even more according to analysts. Investors in this product get a participation rate $p$ of 60 %. However, if the stock would end below its initial value the investor gets 90 % of his initial investment $N$ back. The investor receives at Friday 18th January 2019
+
+\[\text{PPPN}= 855 + 950\cdot60\%\cdot\max(\frac{(S_T-190.86)}{190.86},0)\]
+
+where $S_T$ is the stock price of Alibaba at Friday 18th January 2019.  
+
+## Technical description
+
+The payoff for the investors is as follows 
+\[  \text{payoff}= 0.9N + \text{premium}\]
+where $N$ is the initial investment. The premium is determined as 
+
+\[ \text{premium}  = p\cdot\frac{N}{S_0}\cdot{(S_T-S_0)}^{+} \]
+
+where $p$ is the participation rate and $(S_T-S_0)+ = \max(S_T-S_0, 0)$ is the positive stock return over the investment period $[0,T]$. 
+
+The initial investment $N$ is equal to USD 950. The initial stock value of Alibaba Group $S_0$ is USD 190.86. Finally, the assumed risk free interest rate $i_{rf}$ is 1.188%. This rate is based on the one-year Treasury note interest rate of 1.161 % on Tuesday 21 November 2017. The maturity date is the Friday 18th January 2019 which is around fourteen months from Tuesday 21 November 2017. Therefore, the risk free interest rate is calculated as $i_{rf} = 1.0161^{14/12}$. The inputs in this example are as follow:
+```{r}
+N    = 950
+S0   = 190.86
+r    = 1.0161*(1.0161)^(2/12)  
+```
+
+The crucial part is to determine $p$, using the real market option data, such that the product is attractive for our investors and we contain a certain margin.
+
+In general the product is designed as follows. First, we invest the amount $\frac{0.9N}{1+i_{rf}}$ in the risk free rate $i_{rf}$ (1 year US Treasury note). This investment will grow to $0.9N$ at Friday 18th January 2019. As the customer invested 950 USD and we invested $\frac{0.9N}{1+i_{rf}}$ or 839.22 USD we have a budget of 110.78 USD left in the bank account. 
+
+Next, we invest in 3 European Call options (EC) with strike price $K=190$ and maturity date Friday 18th January 2019. An at-the-money (ATM) European call option is available and trades at bid USD 28.10 and ask USD 28.55. In total, USD 85.65 is invested in three ECs with strike price $K=190$. We keep USD 25.14 for ourself as a margin (2.65 % of the initial investment $N$). Therefore, this PPPN makes a clear profit for our business given the participation rate $p$ of 60%. 
+
+```{r}
+EC   = 28.55
+K    = 190
+```
+
+```{r, echo=FALSE}
+rf_investment = (0.9*N)/r
+budget        = N - rf_investment
+EC_n          = floor(budget/EC)
+margin        = N-rf_investment-EC_n*EC
+marginperc    = margin/N
+```
+
+```{r, echo=FALSE}
+# Create different stock prices T
+ST = seq(0,400,1)
+# Create different empty vectors
+premium=c()
+return=c()
+clientpremium=c()
+returnbank = c()
+# Calculate the premium the bank receives
+# Calculate the stock return
+for (i in 1:length(ST))
+{
+  premium[i] = EC_n*max(ST[i]-K,0)
+  return[i]  = max((ST[i]-S0)/S0,0)
+  returnbank[i] = premium[i]/N
+}
+
+testdf <- as.data.frame(cbind(ST,premium,return,returnbank,returnbank/return))
+```
+
+The participation rate is determined as the ratio of the bank return and the return on the underlying stock at maturity $S_T$:
+
+\[ p= \frac{\frac{3\cdot\max(S_T-K, 0)}{N}}{\max\Big(\frac{(S_T-190.86)}{190.86},0\Big)} \text{if } S_T \ge K\\\]
+
+When this equation is solved, we end up with a participation rate $p$ converging to around 61%. We decide to give the client a participation rate $p$ of 60%. In that case we can always deliver under all circumstances and keep a certain margin.
+
+```{r, echo=FALSE}
+p = 0.6
+```
+
+```{r, echo=FALSE}
+# calculate the clients premium
+for (i in 1:length(ST))
+  {
+    clientpremium[i]=p*(N/S0)*max((ST[i]-S0),0)
+  }
+
+# calculate clients payoff
+payoff1 = 0.9*N + clientpremium
+# calculate banks payoff
+bank = premium+margin+0.9*N + (premium-clientpremium)
+#create dataframe to store data
+df <- as.data.frame(cbind(ST,payoff1,bank, bank-payoff1,return))
+colnames(df) <- c("Stock Price","Clients Payoff","Banks payoff","Total Premium","Return Stock")
+```
+
+Next, we create figure 1 where the customers payoff of the PPPN (black line) is given as a function of the stock price at maturity $S_T$ of Alibaba. The blue line illustrates the payoff of the bank. Notice, the blue line is always above the black line. This means we will always make a certain margin regardless of the stock price at maturity $S_T$. Under all circumstances we can honour the obligations of the note. When we end up in a scenario where the stock price at maturity $S_T$ is higher as the strike price $K=190$ our margin increases as we keep some profit from the option investment. Remember, the theoretical participation rate $p$ was around 61% while we decided to only give 60% to the client. 
+
+
+```{r fig1, echo=FALSE, fig.cap="\\label{fig:fig1}Payoff PPPN I with a participation rate of 60%"}
+plot <- ggplot(df, aes(x=ST,y=payoff1)) + geom_line() + geom_line(y=bank, color="blue")  + theme_bw() + xlab("Stock Price S(T)") + ylab("Payoff PPPN I") 
+plot <- plot +  scale_y_continuous(limits=c(0,1800))
+plot <- plot +geom_vline(xintercept = (0.1/p)*S0 + S0, color = "red") # add where client gets initial amount back
+plot
+```
+
+
+Figure 1 illustrates that the custumors minimal payoff is $0.9N$ even when the stock goes to zero. The payoff of the client inceases when Alibaba's stock is above $S_0$ or USD 190.86. The red vertical line denotes the stock price at maturity $S_T$ which has to be reached to receive back his initial investment. This price is equal to USD 218.94 which is a relative increase of 14.71 % from $S_0$. A first impression could be that this is not such an attractive product for the customer. However, remember that Alibaba is a very volatile stock and more than doubled in the last year. If Alibaba's stock continues his earlier track record this PPPN could lead to very high returns for the investor. 
+
+# PPPN II
+
+## Financial Product Description 
+
+The second Partially Principal Protect Note (PPPN) is a financial product designed for investors who don't like to take many risk. On the other hand, the investor would like to benefit from an increasing equity market in the medium term. This can be a really interesting investment as the last eight years the stock markets more than doubled and investors would like to profit from this increase. In addition, this PPPN protects investors against adverse movements in stocks. These features make this financial product really attractive for risk-adverse investors looking for a higher return.  
+
+## Technical description
+
+The payoff for the investors is as follows 
+
+\[  \text{payoff}= 0.9N + \text{premium}\]
+
+where $N$ is the initial investment. The premium for the PPPN II is given by
+
+\[   
+\text{premium} = 
+     \begin{cases}
+       0 &\quad\text{if } S_T \le K\\
+       0.05\cdot N &\quad\text{if } K < S_T \le 1.1 \cdot S_0  \\
+       0.5\cdot\frac{N}{S_0}.(S_T-S_0) &\quad\text{if } S_T > 1.1\cdot S_0\\
+     \end{cases}
+\]
+
+where $\frac{S_T-S_0}{S_0}$ is the positive stock return over the investment period $[0,T]$. If the stock is above $K$ at maturity the premium is equal to 5% of his initial investment. If the stock price goes up by more than 10%, the investor gets a participation rate of 50% in the stock return. We need to determine $K$, using real market option data, such that the product is attractive for investors and we have a certain margin. We use the same inputs as we did when we designed the PPPN I. The inputs in this example are as follow:
+```{r}
+S0                    = 190.86
+N                     = 950
+r                     = 1.0161*(1.0161)^(2/12)
+```
+
+```{r, echo=FALSE}
+rf_investment         = (0.9*N)/r
+```
+
+In general the product is designed as follows. First, we invest the amount $\frac{0.9N}{1+i_{rf}}$ in the risk free rate $i_{rf}$. This investment will grew to $0.9N$ at Friday 18th January 2019. As the customer invested 950 USD and we invested $\frac{0.9N}{1+i_{rf}}$ or 839.22 USD we still have a budget of 110.78 USD in the bank account. 
+
+Next, we invest in 3 different European Call options (EC) with maturity date Friday 18th January 2019. The first European call option trades with a strike $K=195$ at a bid of USD 25.9 and ask USD 26.2. The second European call option has a strike $K=200$ is available and trades at bid USD 23.9 and ask USD 24.25. The third European call option has a strike $K=210$ is available and trades at bid USD 19.95 and ask USD 20.4.
+
+```{r, echo=FALSE}
+EC1l = 26.2
+EC2s = 23.9
+EC3l = 20.4
+K1 = 195
+K2 = 200
+K3 = 210
+```
+
+To construct the PPPN we go long in the EC with strike 195 and 210. We take a short position in the EC with strike 200. We sell 10 EC with strike $K=200$ with bid price USD 23.9 and receive USD 239 Next, we buy for a total amount of 262 USD 10 EC with $K=195$ and 2.5 EC with strike $K=210$. We keep USD 36.78 for ourself as a margin (3.87% of the initial investment $N$). Therefore, this PPPN is clearly profitable when we set $K$ equal to 200. Notice, we buy a fraction of the EC with strike $K=210$. In reality buying fractions of a EC is not possible. However, in the banking sector the PPPN will not be sold once but with a multiple of thousand, million,... (in that case we have e.g. 2500 EC which has no fraction).
+
+```{r, echo=FALSE}
+N1 = 10
+N2 = 10
+N3 = 2.5
+budget        = N - rf_investment
+budget2       = budget + N2*EC2s
+budget3       = budget2 - N1*EC1l -N3*EC3l
+marginPPN2    = budget3/N
+```
+
+```{r, echo=FALSE}
+# Create different stock prices T
+ST = seq(150,250,0.1)
+
+# Payoffs ECs which the banks receives 
+payoff_EC1l=c()
+payoff_EC2s=c()
+payoff_EC3l=c()
+totalpayoff=c()
+
+for (i in 1:length(ST))
+{
+  payoff_EC1l[i] =  max(ST[i]-K1,0)
+  payoff_EC2s[i] = -max(ST[i]-K2,0)
+  payoff_EC3l[i] =  max(ST[i]-K3,0)  
+  totalpayoff[i] =  N1*payoff_EC1l[i] + N2*payoff_EC2s[i] + N3*payoff_EC3l[i] + (0.9*N)  # bank also receive risk free investment
+}
+
+df <- as.data.frame(cbind(ST,totalpayoff))
+```
+
+```{r, echo=FALSE}
+K=200
+```
+
+```{r, echo=FALSE}
+payout=c()
+
+#payout to client
+for (i in 1:length(ST))
+{
+  if (ST[i]<=K)
+  {payout[i] = 0.9*N }
+  
+  else if (ST[i]>K & ST[i]<=1.1*S0  )
+  {payout[i] = 0.9*N + 0.05*N }
+  
+  else 
+  {payout[i] = 0.9*N + 0.5*(N*((ST[i]-S0)/S0))}
+}
+
+df <- as.data.frame(cbind(df,payout,totalpayoff-payout))
+```
+
+Figure 2 illustrates the customers payoff of the PPPN (black line) as a function of the stock price at maturity $S_T$ of Alibaba. The blue line illustrates the payoff of the bank. Notice, the blue line is always above the black line. This means we will always make a certain margin regardless where the stock price at maturity $S_T$ will be. Under all circumstances we can honour the obligations of the note. Notice, the bank could receive a higher margin when the stock price at maturity $S_T$ would end up between 195 and 200. If the stock price at maturity $S_T$ ends above 200 the banks receives an additional amount of USD 2.5 above the certain margin of USD 36.78 as he keeps a small profit from the option investment. 
+
+
+```{r fig2, echo=FALSE, fig.cap="\\label{fig:fig2}PPPN II with K = 200"}
+# Plot
+plot <- ggplot(df, aes(x=ST,y=payout)) + geom_line(y=totalpayoff, color="blue") + geom_line() + theme_bw() + xlab("Stock Price S(T)") + ylab("Payoff PPPN II") 
+plot <- plot +  ggtitle("Payoff PPPN II") + geom_vline(xintercept = 229, color = "red") 
+plot
+```
+
+
+Figure 2 illustrates that the custumors minimal payoff is $0.9N$ even when the stock goes to zero. The payoff of the client inceases when Alibaba's stock is above $K$ or USD 200. The red vertical line denotes the stock price at maturity $S_T$ which has to be reached to receive back his initial investment. When the stock goes up with more than 10% the investor gets a participation rate of 50% in the stock return of Alibaba. The investor receives his initial investment when the stock price at maturity $S_T$ is above USD 229 which is a relative increase of 16.84 % from $S_0$.
+
+A first impression of the customer could be that this financial product is not that attractive. However, remember that Alibaba's share is a very volatile stock and more than doubled in the last year. If Alibaba continues his earlier track record this PPPN could lead to very high returns for the investor. 
+
+# Final comment
+
+We assume that we face no risk as we can deliver the product in all circumstances. However, some credit risk is still involved. There always exist a low probability that the counterparty cannot deliver. In the case of the risk free investment in the Treasury note the American government could go bankrupt. In the case of the call option the counterparty also can go into default. To conclude, we will always face a small likelihood that the couterparty will not deliver. In today's financial markets pure risk free investments don't exist anymore.  
+
+# References
+
+1. Daily Treasury Yield Curve Rates. (2017). https://www.treasury.gov/resource-center/data-chart-center/interest-rates/Pages/TextView.aspx?data=yield
+
+2. Alibaba Stock Price. (2017). Finance Yahoo!. https://finance.yahoo.com/quote/BABA/
+
+3. Alibaba Call Options. (2017). Finance Yahoo!. https://finance.yahoo.com/quote/BABA/options?p=BABA&date=1547769600
+
+# Appendix
+
+```{r fig 3, fig.width=10, fig.height=100,echo=FALSE, fig.cap="\\label{fig:fig3}Stock Price Alibaba"}
+library(png)
+library(grid)
+img <- readPNG("~/Documents/KU LEUVEN/MFAE/FINANCIAL MATHEMATICS/Assignment/Screenshots BABA/BABA stock price.png")
+ grid.raster(img)
+```
+
+```{r fig 4, fig.width=10, fig.height=100,echo=FALSE, fig.cap="\\label{fig:fig4}Call Option Prices Alibaba"}
+library(png)
+library(grid)
+img <- readPNG("~/Documents/KU LEUVEN/MFAE/FINANCIAL MATHEMATICS/Assignment/Screenshots BABA/BABA call options 150-280.png")
+ grid.raster(img)
+```
